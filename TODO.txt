@@ -1,0 +1,27 @@
+TODO:
+
+ROP!!!!!!!!
+
+
+
+
+make air and element setting automatically updated based on mech case
+
+make it consistent, should traced be upper or lower case?
+
+fix db problem in plot builder
+new element setting not shown 
+
+
+GPSA will be zero if no graph file
+
+copy subplot
+
+maybe should let db show fat in a long text_Edit
+
+manually add a GP
+
+
+problem when plot sp
+
+ylim doesn't check number of input
