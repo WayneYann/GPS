@@ -41,9 +41,9 @@ def raw2soln(soln, raw, i_pnt):
 
 
 
-def load_GPSA(dir_raw, GP_dir, method):
-	GP_name = GP_dir['name']
-	traced = GP_dir['traced']
+def load_GPSA(dir_raw, GP_dict, method):
+	GP_name = GP_dict['name']
+	traced = GP_dict['traced']
 	path_save = os.path.join(dir_raw,'GPSA',traced, shorten_GP_name(GP_name)+'.json')
 	if os.path.exists(path_save):
 		GPSA_all = json.load(open(path_save,'r'))
@@ -75,10 +75,10 @@ def load_GPSA(dir_raw, GP_dir, method):
 
 
 
-def	find_GPSA(dir_raw, GP_dir, soln, dnR, fuel_comp, n_break=0):
+def	find_GPSA(dir_raw, GP_dict, soln, dnR, fuel_comp, n_break=0):
 
-	GP_name = GP_dir['name']
-	traced = GP_dir['traced']
+	GP_name = GP_dict['name']
+	traced = GP_dict['traced']
 	dir_save = os.path.join(dir_raw,'GPSA',traced)
 	if not os.path.exists(dir_save):
 		os.makedirs(dir_save)
@@ -99,8 +99,8 @@ def	find_GPSA(dir_raw, GP_dir, soln, dnR, fuel_comp, n_break=0):
 
 	print 'computing GPSA for '+GP_name
 
-	traced = GP_dir['traced']
-	GP_member = GP_dir['member']
+	traced = GP_dict['traced']
+	GP_member = GP_dict['member']
 	dir_graph = os.path.join(dir_raw,'graph')	
 	path_raw = os.path.join(dir_raw,'raw.npz')
 	raw = load_raw(path_raw)
@@ -135,8 +135,8 @@ def	find_GPSA(dir_raw, GP_dir, soln, dnR, fuel_comp, n_break=0):
 		#GPSA['perc_ij'][edge]['member'] = []
 		#GPSA['perc_ij'][edge]['net'] = []
 
-	source = GP_dir['member'][0]
-	traced = GP_dir['traced']
+	source = GP_dict['member'][0]
+	traced = GP_dict['traced']
 	if source not in fuel_comp.keys():
 		perc_from_source = 0.0
 	else:
