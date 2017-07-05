@@ -63,7 +63,7 @@ def find_data_chemkin(s_key, df, project=None):
 		
 
 
-def find_data_GPS(s_key, raw, soln=None, project=None, fld_raw=None):
+def find_data_raw(s_key, raw, soln=None, project=None, fld_raw=None):
 
 	basics = {
 		'Z'		: 'mixture fraction',
@@ -110,7 +110,7 @@ def get_axs():
 	return axs
 
 
-def plot_OppDiff_scatter(s_key_y, s_key_x='Z', axs=None):
+def plot_OppDiff_scatter(s_key_y, s_key_x='Z', axs=None, color='r'):
 
 	xlabel, xlim = find_label_lim(s_key_x)
 	ylabel, ylim = find_label_lim(s_key_y)
@@ -118,22 +118,29 @@ def plot_OppDiff_scatter(s_key_y, s_key_x='Z', axs=None):
 	if axs is None:
 		axs = get_axs()
 
-	U = "69" 
-	dd = ["0.1", "0.142", "0.9"]
-	lsls = ["--",":","-"]
-
 	for i_case in range(n_case):
 		ax = axs[i_case]
 		case = cases[i_case]
 		for d, ls in zip(dd, lsls):
 			strain = float(U)/float(d)
 
+			"""
 			path = os.path.join(fld_prj, "OppDiff", "U"+str(U)+"_d"+d+"cm.csv")
 			df = pd.read_csv(path, delimiter=',')
 			x = find_data_chemkin(s_key_x, df)
 			y = find_data_chemkin(s_key_y, df)
+			"""
 
-			ax.plot(x,y, color='r', linestyle=ls, linewidth=2,
+			name = "OppDiff_U"+U+"_d"+d+"cm"
+			print name
+			fld_raw = find_fld_raw(fld_prj, name)
+
+			raw = load_raw(os.path.join(fld_raw,'raw.npz'))
+			x = find_data_raw(s_key_x, raw, soln, project, fld_raw)
+			y = find_data_raw(s_key_y, raw, soln, project, fld_raw)
+
+
+			ax.plot(x,y, color=color, linestyle=ls, linewidth=2,
 				label="OppDiff, "+r"$\alpha=$"+str(int(strain))+r"$s^{-1}$")
 
 		ax.set_title(case)
@@ -167,27 +174,61 @@ def plot_DNS_scatter(s_key_y, s_key_x, axs=None,
 		fld_raw = find_fld_raw(fld_prj, name)
 
 		raw = load_raw(os.path.join(fld_raw,'raw.npz'))
-		X = find_data_GPS(s_key_x, raw, soln, project, fld_raw)
-		Y = find_data_GPS(s_key_y, raw, soln, project, fld_raw)
+		X = find_data_raw(s_key_x, raw, soln, project, fld_raw)
+		Y = find_data_raw(s_key_y, raw, soln, project, fld_raw)
+		max_dX = (max(X)-min(X))/n_stat
+		len_x = len(X)
 
 		if i_case==0:
 			ms = 10
 		else:
 			ms = 0.7
 
-		if stat:
+		if stat and i_case>0:
 			sortedXY = [list(x) for x in zip(*sorted(zip(X, Y), key=lambda pair: pair[0]))]
 			batch = len(X)/n_stat
 			dx = (max(X) - min(X))/(n_stat-1)
 			x = []
 			y = []
-			for i in range(n_stat):
-				xx = sortedXY[0][i*batch: (i+1)*batch]
-				yy = sortedXY[1][i*batch: (i+1)*batch]
+			ey = []
+			prev_i = 0
+			while prev_i < len_x:
+				batch_i = min(len_x - prev_i - 1, batch)
+				while True:
+					if batch_i < batch/10:
+						break
+					if sortedXY[0][prev_i+batch_i] - sortedXY[0][prev_i] > max_dX:
+						batch_i /= 2
+						#print "batch_i reduced to",batch_i
+					else:
+						break
+					
+				xx = sortedXY[0][prev_i: prev_i+batch_i]
+				yy = sortedXY[1][prev_i: prev_i+batch_i]
+				prev_i = prev_i+batch_i+1
+
+				#xx = sortedXY[0][i*batch: (i+1)*batch]
+				#yy = sortedXY[1][i*batch: (i+1)*batch]
 				x.append(np.mean(xx))
 				y.append(np.mean(yy))
+				ey.append(np.std(yy))
 
-			ax.plot(x, y, marker='.', color=color, label=label)
+			ax.plot(x, y, 
+				linestyle='None', marker='.', color=color, markersize=10, label=label)
+			
+			# error bar
+			alpha = 0.3
+			for i in xrange(len(x)):
+				# vertical
+				ax.plot([x[i], x[i]], [y[i]+ey[i], y[i]-ey[i]], 
+					color=color, alpha=alpha)
+
+				# horizon
+				for sign in [-1,1]:
+					yi = y[i] + sign * ey[i]
+					ax.plot([x[i]-max_dX/4, x[i]+max_dX/4], [yi, yi],
+						color=color, alpha=alpha)
+
 
 		else:
 			ax.plot(X, Y, 
@@ -212,9 +253,9 @@ def plot_scatter_vs_OppDiff():
 	#s_key_x = 'T'
 	stat = True
 
-	#for sp in ['HO2']:#"H", "O", "OH",]:
-	#	s_key_y = "sp;"+sp
-	for s_key_y in ['Qdot']:
+	for sp in ["CO2", "CO", "H2O"]:#['HO2', "H", "O", "OH",]:
+		s_key_y = "sp;"+sp
+	#for s_key_y in ['Qdot', 'T']:
 
 		axs = plot_DNS_scatter(s_key_y, s_key_x, stat=stat)
 		axs = plot_OppDiff_scatter(s_key_y, s_key_x, axs=axs)
@@ -241,10 +282,18 @@ def plot_scatter_GP():
 	#stat = True
 	stat = False
 
+	if stat:
+		global dd
+		dd = ["0.142"]
+		global lsls
+		lsls = ["-"]
+
 	for GP_alias, color in zip(["GP-H2-HO2", "GP-H2-highT"], ['b','r']):
 		s_key_y = method+";"+GP_alias
 		axs = plot_DNS_scatter(s_key_y, s_key_x, 
 			color=color, axs=axs, label=GP_alias, stat=stat)
+		if stat:
+			axs = plot_OppDiff_scatter(s_key_y, s_key_x, axs=axs, color=color)
 	
 	axs[0].legend(loc="best", frameon=False)
 	fld_plot = os.path.join(fld_prj,'plot','scatter GP')
@@ -266,13 +315,17 @@ if __name__ == '__main__':
 
 	plt.rc('font', family='Times New Roman')
 
-	n_stat = 33	# if plot mean, how many x levels?
+	n_stat = 15	# if plot mean, how many x levels?
 	traced = 'H'
 	mech = 'GRI'
 	tt = [0,20,40]
 	#ZZ=[0.31,0.422,0.54]	# list of mixture fraction to be plotted
 	ZZ=[0.15,0.422,0.6]	# list of mixture fraction to be plotted
 	dZ=0.005
+
+	U = "69" 
+	dd = ["0.1", "0.142", "0.9"]
+	lsls = ["--",":","-"]
 
 	cases = [str(i)+'tj' for i in tt]
 	n_case = len(cases)
@@ -284,8 +337,8 @@ if __name__ == '__main__':
 	prj_json = os.path.join(fld_prj,'project.json')
 	project = json.load(open(prj_json,'r'))
 
-	plot_scatter_GP()
-	#plot_scatter_vs_OppDiff()
+	#plot_scatter_GP()
+	plot_scatter_vs_OppDiff()
 
 
 
